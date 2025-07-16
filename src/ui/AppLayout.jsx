@@ -1,15 +1,11 @@
 import Header from "./Header";
 import Loader from "./Loader";
 import CartOverview from "../features/cart/CartOverview";
-import {
-  Outlet,
-  useNavigation,
-} from "react-router-dom";
+import { Outlet, useNavigation } from "react-router-dom";
 
 function AppLyout() {
   const navigation = useNavigation();
-  const isLoading =
-    navigation.state === "loading";
+  const isLoading = navigation.state === "loading";
   return (
     <div className="grid h-screen grid-rows-[auto_1fr_auto]">
       {isLoading && <Loader />}
@@ -17,7 +13,6 @@ function AppLyout() {
       <Header />
       <div className="overflow-scroll">
         <main className="mx-auto max-w-3xl">
-          <h1>Content</h1>
           <Outlet />
         </main>
       </div>
