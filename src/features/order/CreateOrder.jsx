@@ -2,36 +2,17 @@ import { Form, redirect, useActionData, useNavigation } from "react-router-dom";
 import { createOrder } from "../../services/apiRestaurant";
 import Button from "../../ui/Button";
 import { useSelector } from "react-redux";
+import { clearCart, getCart, getTotlaCartPrice } from "../cart/cartSlice";
+import EmptyCart from "../cart/EmptyCart";
+import store from "../../store";
+import { formatCurrency } from "../../utils/helpers";
+import { useState } from "react";
 
 // https://uibakery.io/regex-library/phone-number
 const isValidPhone = (str) =>
   /^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$/.test(
     str,
   );
-
-const fakeCart = [
-  {
-    pizzaId: 12,
-    name: "Mediterranean",
-    quantity: 2,
-    unitPrice: 16,
-    totalPrice: 32,
-  },
-  {
-    pizzaId: 6,
-    name: "Vegetale",
-    quantity: 1,
-    unitPrice: 13,
-    totalPrice: 13,
-  },
-  {
-    pizzaId: 11,
-    name: "Spinach and Mushroom",
-    quantity: 1,
-    unitPrice: 15,
-    totalPrice: 15,
-  },
-];
 
 function CreateOrder() {
   const userName = useSelector((state) => state.user.userName);
@@ -41,8 +22,12 @@ function CreateOrder() {
 
   //Custom hook para acceder a la data que nos arroja nuestra action function y retornar los errores en la UI
   const formErrors = useActionData();
-  // const [withPriority, setWithPriority] = useState(false);
-  const cart = fakeCart;
+  const [withPriority, setWithPriority] = useState(false);
+  const cart = useSelector(getCart);
+  const totalCartPrice = useSelector(getTotlaCartPrice);
+  const priorityPrice = withPriority ? totalCartPrice * 0.2 : 0;
+  const totalPrice = totalCartPrice + priorityPrice;
+  if (!cart.length) return <EmptyCart />;
 
   return (
     <div className="px-4 py-6">
@@ -92,8 +77,8 @@ function CreateOrder() {
             type="checkbox"
             name="priority"
             id="priority"
-            // value={withPriority}
-            // onChange={(e) => setWithPriority(e.target.checked)}
+            value={withPriority}
+            onChange={(e) => setWithPriority(e.target.checked)}
             className="h-6 w-6 accent-yellow-400 focus:outline-none focus:ring focus:ring-yellow-400 focus:ring-offset-2"
           />
           <label htmlFor="priority" className="font-medium">
@@ -102,10 +87,13 @@ function CreateOrder() {
         </div>
 
         <div>
+          {/* Transformando directamente el value en json para hacer el post */}
           <input type="hidden" name="cart" value={JSON.stringify(cart)} />
-          {/* Revisar para handling de sobmitting */}
+          {/* Revisar para handling de submitting */}
           <Button disabled={isSubmitting} type="primary">
-            {isSubmitting ? "Placing Order" : "Order now"}
+            {isSubmitting
+              ? "Placing Order"
+              : `Order now for ${formatCurrency(totalPrice)} `}
           </Button>
         </div>
       </Form>
@@ -124,13 +112,9 @@ export async function action({ request }) {
   const order = {
     ...data,
     cart: JSON.parse(data.cart),
-    priority: data.priority === "on",
+    priority: data.priority === "true",
   };
 
-  //Hacemos submmit con el POST request hacia la Funcion de API restaurant
-  //Para  el post request revisar la funcion API
-  //---------Manejo de Errores en caso de que la informacion no sea correcta
-  // Debe ir antes de que se cree el nuevo objeto
   const errors = {};
 
   if (!isValidPhone(order.phone))
@@ -142,8 +126,11 @@ export async function action({ request }) {
 
   const newOrder = await createOrder(order);
 
+  //No sobre usar por cuestiones de rendimiento - vaciando el carrito una vez echa la orden
+  store.dispatch(clearCart());
+
   //Obtenemos de vuelta  el nuevo objeto newOrder
-  //New Order es el objeto que estaretornando de la API como respuesta haber llamado lafuncion
+
   //Redirigimos de inmediato a `/order/${newOrder.id}`
   return redirect(`/order/${newOrder.id}`);
 }
