@@ -16,7 +16,16 @@ const isValidPhone = (str) =>
   );
 
 function CreateOrder() {
-  const userName = useSelector((state) => state.user.userName);
+  const {
+    userName,
+    status: addressStatus,
+    position,
+    address,
+    error: errorAddress,
+  } = useSelector((state) => state.user);
+
+  const isLoadingAddress = addressStatus === "loading";
+
   //Error handling cuando hacemos submmit
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -34,8 +43,7 @@ function CreateOrder() {
 
   return (
     <div className="px-4 py-6">
-      <h2 className="taext-xl mb-8 font-semibold">Ready to order? Let's go!</h2>
-      <button onClick={() => dispatch(fetchAddress())}>ge position</button>
+      <h2 className="mb-8 text-xl font-semibold">Ready to order? Let's go!</h2>
 
       {/* <Form method="POST" action="/order/new"> */}
       <Form method="POST">
@@ -63,17 +71,37 @@ function CreateOrder() {
           </div>
         </div>
 
-        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
           <label className="sm:basis-40">Address</label>
           <div className="grow">
             <input
               type="text"
               name="address"
               required
-              // className="w-full px-4 py-2 text-sm transition-all duration-300 border rounded-full border-stone-200 placeholder:text-stone-400 focus:outline-none focus:ring focus:ring-yellow-400 md:px-6 md:py-3"
+              disabled={isLoadingAddress}
               className="input w-full"
+              defaultValue={address}
             />
+            {addressStatus === "error" && (
+              <p className="mt-2 rounded-md bg-red-100 p-2 text-xs text-red-700">
+                {errorAddress}
+              </p>
+            )}
           </div>
+          {!position.latitude && !position.longitude && (
+            <span className="absolute right-[0.5px] top-[49px] -translate-y-1/2 transform sm:top-1 sm:translate-y-0 md:right-[5px] md:top-[5px]">
+              <Button
+                type="small"
+                onClick={(e) => {
+                  e.preventDefault();
+                  dispatch(fetchAddress());
+                }}
+                disabled={isSubmitting || isLoadingAddress}
+              >
+                Get position
+              </Button>
+            </span>
+          )}
         </div>
 
         <div className="mb-12 flex items-center gap-5">
@@ -89,14 +117,24 @@ function CreateOrder() {
             Want to give your order priority?
           </label>
         </div>
-
+        {/* Inputs hidden */}
         <div>
-          {/* Transformando directamente el value en json para hacer el post */}
+          {/* Transformando directamente el value en json para hacer el POST de la orden*/}
           <input type="hidden" name="cart" value={JSON.stringify(cart)} />
+          {/* Enviando las coordenadas a la API en caso de que se usara geolocalizacion */}
+          <input
+            type="hidden"
+            name="position"
+            value={
+              position.latitude && position.longitude
+                ? `${position.latitude}, ${position.longitude}`
+                : ""
+            }
+          />
           {/* Revisar para handling de submitting */}
           <Button disabled={isSubmitting} type="primary">
             {isSubmitting
-              ? "Placing Order"
+              ? "Placing Order..."
               : `Order now for ${formatCurrency(totalPrice)} `}
           </Button>
         </div>
@@ -104,6 +142,7 @@ function CreateOrder() {
     </div>
   );
 }
+
 //------ Action Function
 
 //Busqueda por ID de una orden
@@ -120,6 +159,7 @@ export async function action({ request }) {
     priority: data.priority === "true",
   };
 
+  console.log(order);
   const errors = {};
 
   if (!isValidPhone(order.phone))
